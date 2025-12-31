@@ -25,6 +25,7 @@ async def get_user_by_username(db: AsyncSession, username: str) -> Optional[mode
 
 
 async def get_user_by_public_id(db: AsyncSession, public_id: str) -> Optional[models.User]:
+    """Находит пользователя по public_id (UUID строка)"""
     result = await db.execute(
         select(models.User).where(models.User.public_id == public_id)
     )
@@ -32,20 +33,25 @@ async def get_user_by_public_id(db: AsyncSession, public_id: str) -> Optional[mo
 
 
 async def create_user(db: AsyncSession, user_data: schemas.UserCreate) -> models.User:
-    # Check if user exists
+    """Создает нового пользователя в базе данных"""
+    # Проверяем, существует ли пользователь с таким email
     existing_user = await get_user_by_email(db, user_data.email)
     if existing_user:
-        raise ValueError("User with this email already exists")
+        raise ValueError("Пользователь с таким email уже существует")
 
+    # Проверяем, существует ли пользователь с таким username
     existing_username = await get_user_by_username(db, user_data.username)
     if existing_username:
-        raise ValueError("User with this username already exists")
+        raise ValueError("Пользователь с таким именем уже существует")
 
-    # Create user
+    # Хэшируем пароль с помощью bcrypt
     hashed_password = auth.get_password_hash(user_data.password)
+
+    # Создаем токен для верификации email
     verification_token = str(uuid.uuid4())
     token_expires = datetime.utcnow() + timedelta(hours=24)
 
+    # Создаем объект пользователя
     db_user = models.User(
         email=user_data.email,
         username=user_data.username,
@@ -104,31 +110,66 @@ async def create_email_verification(db: AsyncSession, email: str) -> EmailVerifi
 
 
 async def verify_email_token(db: AsyncSession, token: str) -> bool:
-    """Проверяет токен подтверждения email"""
+    """Проверяет токен подтверждения email с логированием"""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Проверка токена: {token}")
+
+    # ИСПРАВЛЕННЫЙ запрос - используем and_ для правильной логики
+    from sqlalchemy import and_
+
     result = await db.execute(
         select(EmailVerification).where(
-            EmailVerification.token == token,
-            EmailVerification.expires_at > datetime.utcnow(),
-            EmailVerification.is_used is False
+            and_(
+                EmailVerification.token == token,
+                EmailVerification.expires_at > datetime.utcnow(),
+                EmailVerification.is_used.is_(False)
+            )
         )
     )
 
     verification = result.scalar_one_or_none()
+
     if not verification:
+        logger.error(f"Токен не найден, просрочен или уже использован: {token}")
+
+        # Дополнительная диагностика: что именно не так?
+        # Проверяем отдельно каждый критерий
+        result1 = await db.execute(
+            select(EmailVerification).where(EmailVerification.token == token)
+        )
+        v1 = result1.scalar_one_or_none()
+
+        if not v1:
+            logger.error("Токен вообще не существует в базе")
+        else:
+            if v1.expires_at <= datetime.utcnow():
+                logger.error(
+                    f"Токен просрочен. expires_at: {v1.expires_at}, текущее время: {datetime.utcnow()}")
+            if v1.is_used:
+                logger.error("Токен уже использован")
+
         return False
+
+    logger.info(f"Токен найден для email: {verification.email}")
 
     # Помечаем как использованный
     verification.is_used = True
 
     # Находим пользователя и активируем его
     result = await db.execute(
-        select(models.User).where(models.User.email.is_(verification.email))
+        select(models.User).where(models.User.email == verification.email)
     )
     user = result.scalar_one_or_none()
 
-    if user:
-        user.is_verified = True
-        await db.commit()
-        return True
+    if not user:
+        logger.error(f"Пользователь с email {verification.email} не найден")
+        return False
 
-    return False
+    logger.info(f"Пользователь найден: {user.id}, {user.email}")
+    user.is_verified = True
+    await db.commit()
+
+    logger.info(f"Email успешно подтвержден для {user.email}")
+    return True

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, validator, Field, field_validator
 from typing import Optional
 from datetime import datetime
 import re
@@ -6,30 +6,50 @@ import re
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: str
+    username: str = Field(..., min_length=3, max_length=50)
 
-    @validator('username')
+    @field_validator('username')
     def validate_username(cls, v):
-        if len(v) < 3:
-            raise ValueError('Username must be at least 3 characters')
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('Username can only contain letters, numbers and underscores')
+            raise ValueError(
+                'Имя пользователя может содержать только буквы латиницы, цифры и подчеркивания')
         return v
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
 
-    @validator('password')
+    @field_validator('password')
     def validate_password(cls, v):
+        # Проверка минимальной длины в символах
         if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
+            raise ValueError('Пароль должен содержать минимум 8 символов')
+
+        # Проверка на кириллицу (опционально, можно убрать)
+        if re.search(r'[а-яА-ЯёЁ]', v):
+            raise ValueError('Пароль не должен содержать кириллицу')
+
+        # Проверяем наличие хотя бы одной заглавной буквы
         if not any(c.isupper() for c in v):
-            raise ValueError('Password must contain at least one uppercase letter')
+            raise ValueError('Пароль должен содержать хотя бы одну заглавную букву')
+
+        # Проверяем наличие хотя бы одной строчной буквы
         if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
+            raise ValueError('Пароль должен содержать хотя бы одну строчную букву')
+
+        # Проверяем наличие хотя бы одной цифры
         if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
+            raise ValueError('Пароль должен содержать хотя бы одну цифру')
+
+        # ВАЖНО: bcrypt сам обрабатывает ограничение в 72 байта
+        # Предупреждаем пользователя, если пароль может быть обрезан
+        byte_length = len(v.encode('utf-8'))
+        if byte_length > 72:
+            raise ValueError(
+                f'Пароль слишком длинный ({byte_length} байт). '
+                'Будет обрезан до 72 байт. Рекомендуем сократить пароль.'
+            )
+
         return v
 
 
@@ -70,24 +90,23 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(..., min_length=8)
 
-    @validator('new_password')
+    @field_validator('new_password')
     def validate_password(cls, v):
         if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
+            raise ValueError('Пароль должен содержать минимум 8 символов')
         return v
 
 
 class UserUpdate(BaseModel):
     """Схема для обновления профиля пользователя"""
-    username: Optional[str] = None
-    full_name: Optional[str] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    full_name: Optional[str] = Field(None, max_length=200)
 
-    @validator('username')
+    @field_validator('username')
     def validate_username(cls, v):
-        if v is not None and len(v) < 3:
-            raise ValueError('Username must be at least 3 characters')
         if v is not None and not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('Username can only contain letters, numbers and underscores')
+            raise ValueError(
+                'Имя пользователя может содержать только буквы латиницы, цифры и подчеркивания')
         return v

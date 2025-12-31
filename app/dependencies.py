@@ -22,6 +22,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Ищем пользователя по public_id из токена
     user = await crud.get_user_by_public_id(db, token_data.public_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
