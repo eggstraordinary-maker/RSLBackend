@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from app.routers import auth, users
+from app.routers import auth, users, language
+from app.middleware.language_middleware import LanguageMiddleware
 from app.config import settings
 from app.database import engine
 from app import models
@@ -36,6 +37,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(LanguageMiddleware)
+
 # Настройка CORS
 app.add_middleware(
     CustomCORSMiddleware,
@@ -48,6 +51,7 @@ app.add_middleware(
 # Подключение роутеров
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(language.router)
 
 
 @app.get("/")
