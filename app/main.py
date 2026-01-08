@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Жестовый помощник API",
+    title="РЖЯ-помощник API",
     description="API для приложения распознавания жестов русского жестового языка",
     version="1.0.0",
     lifespan=lifespan

@@ -15,7 +15,7 @@ async def set_language(
         response: Response
 ):
     """Устанавливает язык пользователя"""
-    if request.lang not in ['ru', 'en', 'es']:
+    if request.lang not in ['ru', 'en']:
         return {"error": "Unsupported language"}
 
     # Устанавливаем куку с языком
@@ -34,4 +34,4 @@ async def set_language(
 async def get_current_language(request: Request):
     """Возвращает текущий язык пользователя"""
     lang = request.cookies.get('lang', 'ru')
-    return {"lang": lang, "supported_languages": ["ru", "en", "es"]}
+    return {"lang": lang, "supported_languages": ["ru", "en"]}
