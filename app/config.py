@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # App
     debug: bool = False
 
+    # MinIO
+    minio_endpoint: str
+    minio_access_key: str
+    minio_secret_key: str
+    minio_bucket: str = "videos"
+    minio_secure: bool = False
+
     class Config:
         env_file = ".env"
 

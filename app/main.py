@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from app.routers import auth, users, language
+from app.routers import auth, users, language, videos
 from app.middleware.language_middleware import LanguageMiddleware
 from app.config import settings
 from app.database import engine
@@ -52,6 +52,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(language.router)
+app.include_router(videos.router)
 
 
 @app.get("/")

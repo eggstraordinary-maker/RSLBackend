@@ -16,7 +16,7 @@ class LanguageMiddleware(BaseHTTPMiddleware):
             accept_language = request.headers.get('accept-language', '')
             if accept_language:
                 primary_lang = accept_language.split(',')[0].split('-')[0].lower()
-                if primary_lang in ['ru', 'en', 'es']:
+                if primary_lang in ['ru', 'en']:
                     lang = primary_lang
                 else:
                     lang = 'ru'
