@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
@@ -58,3 +59,16 @@ def get_video(object_name: str):
     )
 
     return {"url": url}
+
+
+@router.get("/stream/{object_name}")
+def stream_video(request: Request, object_name: str):
+    response = client.get_object(bucket, object_name)
+
+    return StreamingResponse(
+        response.stream(32 * 1024),
+        media_type="video/mp4",
+        headers={
+            "Accept-Ranges": "bytes"
+        }
+    )
